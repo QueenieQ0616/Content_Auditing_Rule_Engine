@@ -1,0 +1,4 @@
+fastapi
+uvicorn
+# 性能优化阶段再装：
+# pyahocorasick

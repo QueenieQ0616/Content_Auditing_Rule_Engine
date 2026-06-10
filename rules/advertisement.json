@@ -1,0 +1,108 @@
+[
+  {
+    "rule_id": "AD_001",
+    "name": "微信引流",
+    "domain": "advertisement",
+    "level": "L3",
+    "weight": 0.9,
+    "enabled": true,
+    "logic": "OR",
+    "conditions": [
+      { "type": "keyword", "match": "any", "value": ["加微信", "加我微信", "加V", "加v", "vx", "VX", "威信", "薇信", "微信号", "weixin", "wx", "➕v"] }
+    ],
+    "action": { "labels": ["微信引流"], "score": 0.9 }
+  },
+  {
+    "rule_id": "AD_002",
+    "name": "手机号",
+    "domain": "advertisement",
+    "level": "L2",
+    "weight": 0.7,
+    "enabled": true,
+    "logic": "OR",
+    "conditions": [
+      { "type": "regex", "value": "1[3-9]\\d{9}" }
+    ],
+    "action": { "labels": ["联系方式"], "score": 0.7 }
+  },
+  {
+    "rule_id": "AD_003",
+    "name": "QQ号引流",
+    "domain": "advertisement",
+    "level": "L2",
+    "weight": 0.7,
+    "enabled": true,
+    "logic": "AND",
+    "conditions": [
+      { "type": "keyword", "match": "any", "value": ["QQ", "qq", "扣扣", "Q我"] },
+      { "type": "regex", "value": "[1-9]\\d{4,11}" }
+    ],
+    "action": { "labels": ["QQ引流"], "score": 0.7 }
+  },
+  {
+    "rule_id": "AD_004",
+    "name": "网址链接",
+    "domain": "advertisement",
+    "level": "L2",
+    "weight": 0.6,
+    "enabled": true,
+    "logic": "OR",
+    "conditions": [
+      { "type": "regex", "value": "(https?://|www\\.)[a-zA-Z0-9./?=_-]+" },
+      { "type": "keyword", "match": "any", "value": ["点击链接", "戳链接", "长按复制"] }
+    ],
+    "action": { "labels": ["导流链接"], "score": 0.6 }
+  },
+  {
+    "rule_id": "AD_005",
+    "name": "扫码引导",
+    "domain": "advertisement",
+    "level": "L2",
+    "weight": 0.6,
+    "enabled": true,
+    "logic": "OR",
+    "conditions": [
+      { "type": "keyword", "match": "any", "value": ["扫码", "扫一扫", "扫描二维码", "长按识别", "识别二维码"] }
+    ],
+    "action": { "labels": ["扫码引流"], "score": 0.6 }
+  },
+  {
+    "rule_id": "AD_006",
+    "name": "招商代理",
+    "domain": "advertisement",
+    "level": "L2",
+    "weight": 0.6,
+    "enabled": true,
+    "logic": "OR",
+    "conditions": [
+      { "type": "keyword", "match": "any", "value": ["招代理", "招商", "诚招", "代理加盟", "一件代发", "厂家直销", "招微商"] }
+    ],
+    "action": { "labels": ["招商代理"], "score": 0.6 }
+  },
+  {
+    "rule_id": "AD_007",
+    "name": "营销话术",
+    "domain": "advertisement",
+    "level": "L1",
+    "weight": 0.3,
+    "enabled": true,
+    "logic": "OR",
+    "conditions": [
+      { "type": "keyword", "match": "any", "value": ["限时优惠", "免费领", "免费送", "大促销", "清仓", "秒杀", "福利", "优惠券", "领取"] }
+    ],
+    "action": { "labels": ["营销推广"], "score": 0.3 }
+  },
+  {
+    "rule_id": "AD_008",
+    "name": "夸大宣传",
+    "domain": "advertisement",
+    "level": "L1",
+    "weight": 0.4,
+    "enabled": true,
+    "logic": "OR",
+    "conditions": [
+      { "type": "keyword", "match": "any", "value": ["全网最低", "最便宜", "国家级", "第一品牌", "100%有效", "包治", "根治", "永不复发"] }
+    ],
+    "action": { "labels": ["夸大宣传"], "score": 0.4 }
+  }
+]

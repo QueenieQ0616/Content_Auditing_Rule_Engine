@@ -53,7 +53,7 @@ class Rule:
     weight: float                      # 权重，用于打分，建议与 level 对应
     conditions: List[Condition]
     action: Action
-    domain: str = "bad_values"         # 产域，本期固定不良价值观
+    domain: str = "advertising"         # 产域，本期固定不良价值观
     logic: Logic = Logic.AND
     enabled: bool = True
 
@@ -67,7 +67,7 @@ class Rule:
             weight=float(d.get("weight", 0.3)),
             conditions=[Condition(**c) for c in d["conditions"]],
             action=Action(**d.get("action", {})),
-            domain=d.get("domain", "bad_values"),
+            domain=d.get("domain", "advertising"),
             logic=Logic(d.get("logic", "AND")),
             enabled=d.get("enabled", True),
         )

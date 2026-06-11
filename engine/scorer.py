@@ -15,9 +15,9 @@ from typing import List
 
 # 三档尺度对应的双阈值。可按评估结果调整。
 SCALES = {
-    "loose":    {"low": 0.5, "high": 0.8},   # 宽松：只拦最严重的
-    "standard": {"low": 0.35, "high": 0.7},  # 标准：平衡
-    "strict":   {"low": 0.2, "high": 0.5},   # 严格：宁可错杀
+    "loose":    {"low": 0.35, "high": 0.7},   # 宽松：只拦最严重的
+    "standard": {"low": 0.3, "high": 0.61},  # 标准：平衡
+    "strict":   {"low": 0.05, "high": 0.5},   # 严格：宁可错杀
 }
 
 

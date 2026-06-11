@@ -1,0 +1,42 @@
+[
+  {
+    "rule_id": "BV_001",
+    "name": "示例-拜金导向",
+    "domain": "bad_values",
+    "level": "L2",
+    "weight": 0.6,
+    "enabled": true,
+    "logic": "OR",
+    "conditions": [
+      { "type": "keyword", "match": "any", "value": ["干得好不如嫁得好", "找个有钱人", "拜金"] }
+    ],
+    "action": { "labels": ["拜金"], "score": 0.6 }
+  },
+  {
+    "rule_id": "BV_002",
+    "name": "示例-低俗审丑",
+    "domain": "bad_values",
+    "level": "L1",
+    "weight": 0.3,
+    "enabled": true,
+    "logic": "OR",
+    "conditions": [
+      { "type": "keyword", "match": "any", "value": ["审丑", "低俗博眼球"] }
+    ],
+    "action": { "labels": ["低俗审丑"], "score": 0.3 }
+  },
+  {
+    "rule_id": "BV_003",
+    "name": "示例-高危组合(关键词+正则)",
+    "domain": "bad_values",
+    "level": "L3",
+    "weight": 0.9,
+    "enabled": true,
+    "logic": "AND",
+    "conditions": [
+      { "type": "keyword", "match": "any", "value": ["暴力"] },
+      { "type": "regex", "value": "(歧视|仇恨)" }
+    ],
+    "action": { "labels": ["暴力歧视"], "score": 0.9 }
+  }
+]

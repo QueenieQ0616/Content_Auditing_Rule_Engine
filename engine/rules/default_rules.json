@@ -1,0 +1,86 @@
+[
+  {
+    "rule_id": "BV_001",
+    "name": "硬广推销-联系方式",
+    "level": "L3",
+    "weight": 0.9,
+    "logic": "OR",
+    "conditions": [
+      {
+        "type": "keyword",
+        "value": ["加微信", "加VX", "加V", "扫码加", "微信号", "VX号", "加我微信"]
+      }
+    ],
+    "action": { "labels": ["硬广推销"], "score": 0.9 }
+  },
+  {
+    "rule_id": "BV_002",
+    "name": "硬广推销-价格诱导",
+    "level": "L3",
+    "weight": 0.9,
+    "logic": "OR",
+    "conditions": [
+      {
+        "type": "keyword",
+        "value": ["限时特惠", "亏本甩卖", "清仓大甩卖", "全网最低价", "跳楼价", "特价包邮"]
+      }
+    ],
+    "action": { "labels": ["硬广推销"], "score": 0.9 }
+  },
+  {
+    "rule_id": "BV_003",
+    "name": "软广植入-产品推荐",
+    "level": "L2",
+    "weight": 0.6,
+    "logic": "OR",
+    "conditions": [
+      {
+        "type": "keyword",
+        "value": ["强烈推荐", "亲测好用", "回购无数次", "必备好物", "种草", "安利给大家"]
+      }
+    ],
+    "action": { "labels": ["软广植入"], "score": 0.6 }
+  },
+  {
+    "rule_id": "BV_004",
+    "name": "软广植入-效果夸大",
+    "level": "L2",
+    "weight": 0.6,
+    "logic": "OR",
+    "conditions": [
+      {
+        "type": "keyword",
+        "value": ["效果惊人", "三天见效", "一用就灵", "用了都说好", "好评如潮", "销量冠军"]
+      }
+    ],
+    "action": { "labels": ["软广植入"], "score": 0.6 }
+  },
+  {
+    "rule_id": "BV_005",
+    "name": "引流营销-直播间引流",
+    "level": "L2",
+    "weight": 0.6,
+    "logic": "OR",
+    "conditions": [
+      {
+        "type": "keyword",
+        "value": ["直播间下单", "进直播间", "来我直播间", "直播专属", "直播间福利", "开播提醒"]
+      }
+    ],
+    "action": { "labels": ["引流营销"], "score": 0.6 }
+  },
+  {
+    "rule_id": "BV_006",
+    "name": "疑似广告-模糊营销",
+    "level": "L1",
+    "weight": 0.3,
+    "logic": "OR",
+    "conditions": [
+      {
+        "type": "keyword",
+        "value": ["私信了解", "详情私聊", "感兴趣私", "评论区见", "戳链接", "点击下方"]
+      }
+    ],
+    "action": { "labels": ["疑似广告"], "score": 0.3 }
+  }
+]

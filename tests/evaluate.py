@@ -87,7 +87,7 @@ def evaluate(engine, test_csv, scale='standard'):
 
 if __name__ == '__main__':
     # 固定 JSON 规则文件路径（请根据实际位置修改）
-    RULES_JSON = os.path.join(os.path.dirname(__file__), '..', 'rules', 'advertising.json')
+    RULES_JSON = os.path.join(os.path.dirname(__file__), '..', 'engine', 'rules', 'advertising.json')
     # 测试集路径
     TEST_CSV = os.path.join(os.path.dirname(__file__), 'test_set.csv')
 
@@ -101,5 +101,5 @@ if __name__ == '__main__':
     engine = FixedEngine(RULES_JSON)
     # evaluate(engine, TEST_CSV, scale='standard')
     # 可取消注释测试其他尺度
-    evaluate(engine, TEST_CSV, scale='loose')
-    # evaluate(engine, TEST_CSV, scale='strict')
+    # evaluate(engine, TEST_CSV, scale='loose')
+    evaluate(engine, TEST_CSV, scale='strict')

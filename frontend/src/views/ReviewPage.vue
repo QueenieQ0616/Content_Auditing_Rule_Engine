@@ -67,15 +67,73 @@
 
       <el-alert class="reason" :title="result.review_reason" :type="decisionType(result.decision)" :closable="false" show-icon />
 
+      <div class="highlight-box">
+        <div class="section-title">命中词高亮</div>
+        <div class="content-preview">
+          <template v-for="(segment, index) in highlightedSegments" :key="index">
+            <mark v-if="segment.highlight" :class="['hit-mark', segment.matchType]">{{ segment.text }}</mark>
+            <span v-else>{{ segment.text }}</span>
+          </template>
+        </div>
+        <div v-if="result.adversarial_hits?.length" class="adversarial-note">
+          <el-alert
+            title="发现疑似插字绕过样本"
+            type="warning"
+            :closable="false"
+            show-icon
+          >
+            <div v-for="hit in result.adversarial_hits" :key="`${hit.rule_id}-${hit.keyword}`">
+              关键词「{{ hit.keyword }}」以间隔匹配方式命中片段「{{ hit.matched_text }}」。
+            </div>
+          </el-alert>
+        </div>
+      </div>
+
       <el-table v-if="result.hit_rules.length" :data="result.hit_rules" border stripe>
         <el-table-column prop="rule_id" label="规则 ID" width="120" />
         <el-table-column prop="name" label="规则名称" />
-        <el-table-column prop="level" label="等级" width="100">
+        <el-table-column prop="level" label="等级" width="90">
           <template #default="{ row }">
             <el-tag :type="levelType(row.level)">{{ row.level }}</el-tag>
           </template>
         </el-table-column>
+        <el-table-column prop="weight" label="权重" width="90" />
+        <el-table-column label="命中词" width="220">
+          <template #default="{ row }">
+            <el-tag v-for="keyword in row.matched_keywords" :key="keyword" size="small" class="tag">
+              {{ keyword }}
+            </el-tag>
+            <span v-if="!row.matched_keywords?.length">-</span>
+          </template>
+        </el-table-column>
       </el-table>
+    </el-card>
+
+    <el-card v-if="result?.trace" class="panel">
+      <template #header>
+        <div class="card-header">
+          <span>审核过程复现</span>
+          <el-tag type="info">{{ result.trace.trace_id }}</el-tag>
+        </div>
+      </template>
+
+      <el-timeline>
+        <el-timeline-item
+          v-for="stage in result.trace.stages"
+          :key="stage.stage"
+          :type="stageType(stage.status)"
+          :timestamp="stage.title"
+          placement="top"
+        >
+          <div class="trace-item">
+            <div class="trace-detail">{{ stage.detail }}</div>
+            <details v-if="stage.data" class="trace-data">
+              <summary>查看结构化数据</summary>
+              <pre>{{ formatStageData(stage.data) }}</pre>
+            </details>
+          </div>
+        </el-timeline-item>
+      </el-timeline>
     </el-card>
 
     <el-card class="panel">
@@ -106,6 +164,35 @@ const scaleDescription = computed(() => ({
   strict: '严格：更容易转人工或拦截，适合高风险场景。'
 }[form.value.scale]))
 
+const highlightedSegments = computed(() => {
+  if (!result.value?.content) return []
+  const content = result.value.content
+  const positions = [...(result.value.hit_positions || [])]
+    .filter((item) => Number.isInteger(item.start) && Number.isInteger(item.end))
+    .sort((a, b) => a.start - b.start || b.end - a.end)
+
+  const segments = []
+  let cursor = 0
+  for (const item of positions) {
+    const start = Math.max(0, item.start)
+    const end = Math.min(content.length, item.end)
+    if (start < cursor || end <= start) continue
+    if (start > cursor) {
+      segments.push({ text: content.slice(cursor, start), highlight: false })
+    }
+    segments.push({
+      text: content.slice(start, end),
+      highlight: true,
+      matchType: item.match_type === 'adversarial_gap' ? 'adversarial' : 'exact'
+    })
+    cursor = end
+  }
+  if (cursor < content.length) {
+    segments.push({ text: content.slice(cursor), highlight: false })
+  }
+  return segments.length ? segments : [{ text: content, highlight: false }]
+})
+
 const decisionType = (decision) => ({ pass: 'success', review: 'warning', reject: 'danger' }[decision] || 'info')
 const decisionText = (decision) => ({ pass: '放行', review: '转人工', reject: '拦截' }[decision] || decision)
 const riskType = (level) => ({ low: 'success', medium: 'warning', high: 'danger' }[level] || 'info')
@@ -113,6 +200,17 @@ const riskText = (level) => ({ low: '低危', medium: '中危', high: '高危' }
 const levelType = (level) => ({ L1: 'info', L2: 'warning', L3: 'danger' }[level] || 'info')
 const scaleText = (scale) => ({ loose: '宽松', standard: '标准', strict: '严格' }[scale] || scale)
 const scoreColor = (score) => (score >= 0.7 ? '#f56c6c' : score >= 0.35 ? '#e6a23c' : '#67c23a')
+const stageType = (status) => ({
+  pass: 'success',
+  review: 'warning',
+  reject: 'danger',
+  success: 'success',
+  warning: 'warning',
+  danger: 'danger',
+  info: 'primary'
+}[status] || 'primary')
+
+const formatStageData = (data) => JSON.stringify(data, null, 2)
 
 const submitReview = async () => {
   if (!form.value.content.trim()) {
@@ -141,13 +239,14 @@ const testSamples = [
   { label: '硬广内容', content: '限时特惠，全网最低价，特价包邮，加微信下单。' },
   { label: '软广内容', content: '强烈推荐这款面霜，亲测好用，回购无数次，安利给大家。' },
   { label: '引流内容', content: '来我直播间下单有优惠，直播间福利很多，开播提醒已开启。' },
-  { label: '疑似广告', content: '感兴趣私信了解详情，评论区见，点击下方链接查看。' }
+  { label: '疑似广告', content: '感兴趣私信了解详情，评论区见，点击下方链接查看。' },
+  { label: '对抗样本', content: '床加前我明微月信光' }
 ]
 </script>
 
 <style scoped>
 .review-page {
-  max-width: 920px;
+  max-width: 980px;
   margin: 0 auto;
 }
 
@@ -173,6 +272,68 @@ const testSamples = [
 
 .tag {
   margin-right: 6px;
+}
+
+.highlight-box {
+  margin: 20px 0;
+}
+
+.section-title {
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.content-preview {
+  padding: 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #334155;
+  line-height: 1.8;
+  white-space: pre-wrap;
+}
+
+.hit-mark {
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.hit-mark.exact {
+  background: #fde68a;
+  color: #92400e;
+}
+
+.hit-mark.adversarial {
+  background: #fecaca;
+  color: #991b1b;
+}
+
+.adversarial-note {
+  margin-top: 12px;
+}
+
+.trace-item {
+  color: #334155;
+}
+
+.trace-detail {
+  margin-bottom: 8px;
+}
+
+.trace-data summary {
+  cursor: pointer;
+  color: #2563eb;
+}
+
+.trace-data pre {
+  max-height: 260px;
+  overflow: auto;
+  padding: 12px;
+  border-radius: 6px;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-size: 12px;
 }
 
 .sample-list {

@@ -222,3 +222,17 @@ npm.cmd run dev -- --host 127.0.0.1
 ### 修改规则后没有生效
 
 规则是在后端启动时加载的。修改 `engine/rules/*.json` 后，需要重启后端。
+## Audit Trace and Adversarial Detection
+
+The review API now returns extra explanation fields for a single review request:
+
+```text
+trace              full review pipeline timeline
+hit_positions      keyword positions for frontend highlighting
+adversarial_hits   gap-match hits for adversarial text insertion
+score_detail       score calculation details
+decision_detail    threshold and decision details
+```
+
+For example, `床加前我明微月信光` can now be detected as an adversarial variant of `加我微信`.
+The frontend review page displays this in the "审核过程复现" timeline and highlights matched text.

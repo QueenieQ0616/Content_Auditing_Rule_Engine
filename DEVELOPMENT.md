@@ -508,3 +508,117 @@ frontend/vite.config.js
 ```
 
 这三项改动范围相对可控，同时展示效果比较明显。
+
+## 11. 审核链路复现与对抗检测
+
+当前版本已经在 `Engine.check(content, scale)` 的返回值中加入审核链路复现数据，用于解释单条内容从输入到判定的完整过程。
+
+新增核心字段：
+
+```text
+trace              审核过程时间线
+hit_positions      命中词位置，用于前端高亮
+adversarial_hits   疑似插字绕过命中结果
+score_detail       风险分数计算细节
+decision_detail    三态判定阈值细节
+```
+
+### 11.1 trace
+
+`trace.stages` 记录每个处理阶段：
+
+```text
+input_received      接收输入
+preprocess          文本预处理
+keyword_scan        关键词扫描
+adversarial_check   对抗扰动检测
+rule_match          规则匹配
+score               风险打分
+decision            三态判定
+final_action        最终处理
+```
+
+前端 `ReviewPage.vue` 使用时间线展示这些阶段。
+
+### 11.2 命中词高亮
+
+`hit_positions` 示例：
+
+```json
+[
+  {
+    "keyword": "加我微信",
+    "start": 0,
+    "end": 4,
+    "rule_ids": ["BV_001"],
+    "match_type": "exact"
+  }
+]
+```
+
+前端根据 `start` 和 `end` 对原文进行高亮。
+
+### 11.3 对抗样本检测
+
+为了解决简单关键词匹配容易被插字绕过的问题，引擎对 L3 高危关键词增加了间隔容忍匹配。
+
+示例：
+
+```text
+加我微信                 -> 直接命中
+床加前我明微月信光       -> 通过间隔匹配命中
+```
+
+对抗命中返回在：
+
+```text
+adversarial_hits
+```
+
+示例：
+
+```json
+[
+  {
+    "keyword": "加我微信",
+    "matched_text": "加前我明微月信",
+    "max_gap": 2,
+    "rule_id": "BV_001",
+    "rule_name": "硬广推销-联系方式",
+    "level": "L3"
+  }
+]
+```
+
+这类命中也会进入 `trace.stages` 中的 `adversarial_check` 阶段。
+
+### 11.4 实现位置
+
+主要实现文件：
+
+```text
+engine/engine.py
+engine/scorer.py
+frontend/src/views/ReviewPage.vue
+```
+
+其中：
+
+```text
+engine/engine.py               负责 trace、命中位置、对抗检测
+engine/scorer.py               负责 score_detail 和 decision_detail
+frontend/src/views/ReviewPage.vue 负责时间线展示和命中词高亮
+```
+
+### 11.5 注意事项
+
+当前对抗检测是轻量版本：
+
+```text
+1. 只对 L3 高危关键词启用
+2. 默认 max_gap = 2
+3. 关键词长度小于 3 时不启用
+4. 当前不处理拼音、谐音、复杂语义绕过
+```
+
+后续如果误杀较多，可以将 `max_gap`、是否启用 fuzzy、适用规则范围做成规则 JSON 配置。

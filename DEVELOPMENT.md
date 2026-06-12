@@ -1,10 +1,24 @@
 # 开发文档
 
-本文档面向继续开发或接入本项目的人，说明项目结构、核心流程、规则引擎实现、API 调用方式和后续扩展方向。
+本文档面向继续开发、调试或接入本项目的同学。内容包括项目结构、开发环境准备、启动方式、核心模块说明、规则格式、API 调用、测试与常见问题。
 
 ## 1. 项目概览
 
-本项目是一个基于规则引擎的广告内容审核系统，主要能力是识别文本中的硬广、软广、引流、疑似广告等风险内容，并输出三态审核结果：
+本项目是一个基于规则引擎的内容审核系统，主要用于识别文本中的广告、软广、引流、疑似营销和对抗绕过内容。
+
+当前主流程：
+
+```text
+用户输入文本
+  -> 前端提交审核请求
+  -> 后端 FastAPI 接收请求
+  -> engine 加载规则并执行匹配
+  -> scorer 计算风险分数
+  -> 输出 pass / review / reject
+  -> 前端展示结果、命中规则、命中词高亮和审核链路
+```
+
+三态结果：
 
 ```text
 pass    放行
@@ -12,151 +26,294 @@ review  转人工审核
 reject  拦截
 ```
 
-当前主工程由三部分组成：
-
-```text
-frontend  前端审核后台
-backend   FastAPI 接口服务
-engine    规则引擎核心
-```
-
-整体调用链路：
-
-```text
-用户输入文本
-  -> frontend 提交请求
-  -> backend 接收 API 请求
-  -> engine 加载规则并匹配文本
-  -> scorer 计算分数并判定结果
-  -> backend 返回结构化结果
-  -> frontend 展示审核结果
-```
-
 ## 2. 目录结构
 
 ```text
-engine_skeleton/
-├── backend/
-│   ├── main.py              # FastAPI 后端入口
-│   └── requirements.txt     # 后端依赖
-├── engine/
-│   ├── __init__.py
-│   ├── engine.py            # Engine.check 主流程
-│   ├── keyword_index.py     # 关键词索引，支持 pyahocorasick
-│   ├── matchers.py          # 条件匹配器
-│   ├── models.py            # 规则数据结构
-│   ├── rule_store.py        # 规则加载器
-│   ├── scorer.py            # 打分和三态判定
-│   └── rules/               # 规则 JSON 文件
-├── frontend/
+project-root/
+├── api/                    # 其他 API 入口或历史接口
+├── backend/                # 当前 FastAPI 后端服务
+│   └── main.py
+├── data/                   # 测试数据、对抗样本数据
+├── engine/                 # 规则引擎核心
+│   ├── engine.py           # Engine.check 主流程
+│   ├── keyword_index.py    # 关键词索引
+│   ├── matchers.py         # keyword / regex / length / model 匹配器
+│   ├── models.py           # 规则数据结构
+│   ├── rule_store.py       # 规则加载
+│   ├── scorer.py           # 打分与三态判定
+│   └── rules/              # 规则 JSON 文件
+├── frontend/               # Vue 3 + Element Plus 前端
 │   ├── src/
-│   │   ├── api/             # 前端接口封装
-│   │   ├── router/          # 页面路由
-│   │   └── views/           # 页面组件
+│   │   ├── api/
+│   │   ├── router/
+│   │   └── views/
 │   ├── package.json
 │   └── vite.config.js
-├── requirements.txt         # 根目录后端依赖
-├── v1/                      # 历史版本，保留参考
-└── v2/                      # 历史版本，保留参考
+├── tests/                  # 测试脚本和评估脚本
+├── requirements.txt        # Python 后端依赖
+├── README.md
+├── DEVELOPMENT.md
+└── plan_v1.md
 ```
 
-当前实际运行的是根目录下的 `backend/`、`frontend/` 和 `engine/`。`v1/`、`v2/` 只作为历史版本参考。
+后续开发主要关注：
 
-## 3. 本地开发环境
-
-### 3.1 后端环境
-
-推荐使用独立 conda 环境：
-
-```powershell
-conda create -n care python=3.12 -y
-conda activate D:\conda-envs\care
+```text
+backend/
+engine/
+frontend/
+tests/
+data/
 ```
 
-安装依赖：
+## 3. 通用开发环境
+
+### 3.1 基础要求
+
+建议版本：
+
+```text
+Python 3.10+
+Node.js 18+
+npm 9+
+Git
+```
+
+如果使用 conda，建议使用独立环境，不建议直接在 `base` 环境开发。
+
+### 3.2 获取代码
+
+```bash
+git clone <repo-url>
+cd <project-root>
+git checkout feature
+```
+
+如果已经有本地仓库：
+
+```bash
+git fetch origin
+git checkout feature
+git pull origin feature
+```
+
+## 4. 后端开发环境
+
+后端使用 Python + FastAPI。
+
+### 4.1 创建 Python 环境
+
+任选一种方式。
+
+conda：
+
+```bash
+conda create -n content-audit python=3.12 -y
+conda activate content-audit
+```
+
+venv：
+
+```bash
+python -m venv .venv
+```
+
+Windows PowerShell：
 
 ```powershell
-cd D:\engine_skeleton
+.\.venv\Scripts\Activate.ps1
+```
+
+macOS / Linux：
+
+```bash
+source .venv/bin/activate
+```
+
+### 4.2 安装依赖
+
+在项目根目录执行：
+
+```bash
 python -m pip install -r requirements.txt
 ```
 
-启动后端：
+如果 `pyahocorasick` 安装失败，可以先只安装核心依赖运行项目：
 
-```powershell
-python -m uvicorn backend.main:app --host 127.0.0.1 --port 8010
+```bash
+python -m pip install fastapi pydantic "uvicorn[standard]"
+```
+
+没有 `pyahocorasick` 时，系统会退回普通字符串匹配，功能可用但性能略低。
+
+### 4.3 启动后端
+
+默认建议使用 `8000` 端口：
+
+```bash
+python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
+```
+
+开发时可以加热重载：
+
+```bash
+python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
 接口文档：
 
 ```text
-http://127.0.0.1:8010/docs
+http://127.0.0.1:8000/docs
 ```
 
-### 3.2 前端环境
+健康检查：
 
-另开一个 PowerShell：
+```text
+http://127.0.0.1:8000/health
+```
+
+如果 `8000` 被占用，可以换端口，例如：
+
+```bash
+python -m uvicorn backend.main:app --host 127.0.0.1 --port 8010
+```
+
+换端口后，需要同步修改前端代理配置。
+
+## 5. 前端开发环境
+
+前端使用 Vue 3 + Vite + Element Plus。
+
+### 5.1 安装依赖
+
+进入前端目录：
+
+```bash
+cd frontend
+npm install
+```
+
+注意：不要在项目根目录执行 `npm install`，因为前端的 `package.json` 在 `frontend/` 目录。
+
+### 5.2 启动前端
+
+```bash
+npm run dev -- --host 127.0.0.1
+```
+
+Windows PowerShell 如果遇到 `npm.ps1` 执行策略问题，可以使用：
 
 ```powershell
-cd D:\engine_skeleton\frontend
-npm install
 npm.cmd run dev -- --host 127.0.0.1
 ```
 
-前端访问地址：
+前端默认地址：
 
 ```text
 http://127.0.0.1:3000
 ```
 
-前端开发代理配置在 `frontend/vite.config.js`：
+### 5.3 前后端代理
+
+前端代理配置在：
+
+```text
+frontend/vite.config.js
+```
+
+默认配置：
 
 ```js
 proxy: {
   '/api': {
-    target: 'http://localhost:8010',
+    target: 'http://localhost:8000',
     changeOrigin: true
   }
 }
 ```
 
-如果后端端口变化，需要同步修改 `target`。
+如果后端启动在 `8010`，则需要改成：
 
-## 4. 后端实现说明
+```js
+target: 'http://localhost:8010'
+```
 
-后端入口：
+## 6. 一次完整本地启动流程
+
+终端 1：启动后端。
+
+```bash
+cd <project-root>
+conda activate content-audit
+python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
+```
+
+终端 2：启动前端。
+
+```bash
+cd <project-root>/frontend
+npm install
+npm run dev -- --host 127.0.0.1
+```
+
+浏览器访问：
 
 ```text
-backend/main.py
+http://127.0.0.1:3000
 ```
 
-启动时会初始化规则引擎：
-
-```python
-engine = Engine()
-```
-
-核心接口：
-
-```python
-@app.post("/api/v1/review")
-async def review_content(request: ContentRequest):
-    result = engine.check(request.content, request.scale)
-```
-
-后端主要职责：
+接口文档：
 
 ```text
-1. 接收前端或外部系统请求
-2. 调用 engine.check(content, scale)
-3. 包装返回结果
-4. 维护运行时审核历史 review_history
-5. 维护运行时人工审核队列 manual_queue
-6. 提供统计、规则查询、人工审核接口
+http://127.0.0.1:8000/docs
 ```
 
-当前 `review_history` 和 `manual_queue` 都是内存列表，服务重启后会清空。后续如果要做生产化，应接入数据库。
+## 7. 核心后端接口
 
-## 5. 规则引擎实现说明
+### 7.1 内容审核
+
+```text
+POST /api/v1/review
+```
+
+请求示例：
+
+```json
+{
+  "content": "限时特惠，全网最低价，加微信下单",
+  "scale": "standard",
+  "biz_type": "default"
+}
+```
+
+返回中重点字段：
+
+```text
+decision          pass / review / reject
+risk_level        low / medium / high
+score             风险分数
+labels            标签
+hit_rules         命中规则
+hit_positions     命中词位置
+adversarial_hits  对抗绕过命中
+score_detail      打分细节
+decision_detail   判定细节
+trace             审核链路复现
+```
+
+### 7.2 其他接口
+
+```text
+GET    /api/v1/review/history
+GET    /api/v1/rules
+GET    /api/v1/manual/tasks
+POST   /api/v1/manual/review
+GET    /api/v1/stats
+DELETE /api/v1/data/reset
+GET    /health
+```
+
+## 8. 规则引擎说明
 
 规则引擎入口：
 
@@ -170,137 +327,96 @@ engine/engine.py
 Engine.check(content: str, scale: str = "standard") -> dict
 ```
 
-执行流程：
+主要流程：
 
 ```text
-1. Engine 初始化时从 engine/rules/ 加载规则
-2. 收集所有 keyword 条件中的关键词
-3. 构建 KeywordIndex
-4. check() 调用时先扫描文本，得到 hit_words
-5. 遍历所有规则，判断每条规则是否命中
-6. 收集 hit_rules
-7. scorer.score(hit_rules) 计算风险分数
-8. scorer.decide(score, scale) 输出三态判定
-9. 返回 decision、risk_level、score、labels、hit_rules、review_reason
+1. 从 engine/rules/ 加载规则
+2. 收集 keyword 条件并构建关键词索引
+3. 对输入文本做归一化
+4. 执行关键词、正则、长度等条件匹配
+5. 对 L3 高危关键词执行轻量对抗绕过检测
+6. 计算风险分数
+7. 根据 scale 阈值输出 pass / review / reject
+8. 返回 trace、hit_positions、score_detail 等解释字段
 ```
 
-### 5.1 规则加载
-
-规则加载逻辑在：
-
-```text
-engine/rule_store.py
-```
-
-它读取：
-
-```text
-engine/rules/*.json
-```
-
-并将 JSON 数据转换成 `Rule` 对象。
-
-### 5.2 规则模型
-
-规则数据结构定义在：
-
-```text
-engine/models.py
-```
-
-主要模型：
-
-```text
-Rule       一条完整规则
-Condition  单个匹配条件
-Action     命中后的标签和分数信息
-Level      L1 / L2 / L3
-Logic      AND / OR
-```
-
-### 5.3 匹配器
-
-匹配器定义在：
-
-```text
-engine/matchers.py
-```
-
-当前支持：
+### 8.1 支持的 matcher
 
 ```text
 keyword  关键词匹配
 regex    正则匹配
-length   文本长度匹配
-model    模型匹配预留，目前恒为 False
+length   长度匹配
+model    模型接口预留，当前未真正接入模型
 ```
 
-### 5.4 关键词索引
+### 8.2 对抗绕过检测
 
-关键词索引在：
+当前轻量实现支持识别插字、空格、换行、标点等扰动。
+
+例如：
 
 ```text
-engine/keyword_index.py
+加我微信
+床加前我明微月信光
+床
+加
+前
+我
+明
+微
+月
+信
+光
 ```
 
-如果安装了 `pyahocorasick`，会优先使用 AC 自动机进行多关键词匹配。否则退回普通字符串匹配。
+后两种会通过间隔容忍匹配识别为疑似 `加我微信` 绕过。
 
-### 5.5 打分与判定
-
-打分和判定逻辑在：
+当前策略：
 
 ```text
-engine/scorer.py
+只对 L3 高危规则启用
+关键词长度小于 3 不启用
+默认 max_gap = 2
+结果写入 adversarial_hits 和 trace
 ```
 
-当前打分公式：
+后续可优化为规则 JSON 配置：
 
-```text
-score = min(1.0, 最高命中规则权重 + 0.05 * 额外命中规则数)
-```
-
-三档审核尺度：
-
-```python
-SCALES = {
-    "loose": {"low": 0.5, "high": 0.8},
-    "standard": {"low": 0.35, "high": 0.7},
-    "strict": {"low": 0.2, "high": 0.5},
+```json
+{
+  "type": "keyword",
+  "value": ["加我微信"],
+  "fuzzy": {
+    "enabled": true,
+    "max_gap": 2
+  }
 }
 ```
 
-判定规则：
+## 9. 规则文件格式
 
-```text
-score < low          -> pass
-low <= score < high  -> review
-score >= high        -> reject
-```
-
-## 6. 规则文件格式
-
-规则文件放在：
+规则文件目录：
 
 ```text
 engine/rules/
 ```
 
-支持单个 JSON 文件中保存数组形式的规则列表。
-
-示例：
+规则示例：
 
 ```json
 {
   "rule_id": "BV_001",
   "name": "硬广推销-联系方式",
+  "domain": "advertising",
   "level": "L3",
   "weight": 0.9,
-  "logic": "OR",
   "enabled": true,
+  "logic": "OR",
   "conditions": [
     {
       "type": "keyword",
-      "value": ["加微信", "加VX", "微信号"]
+      "match": "any",
+      "value": ["加微信", "加我微信", "微信号"]
     }
   ],
   "action": {
@@ -313,127 +429,37 @@ engine/rules/
 字段说明：
 
 ```text
-rule_id     规则唯一 ID
+rule_id     规则 ID
 name        规则名称
-level       风险等级，L1 / L2 / L3
-weight      规则权重，用于计算风险分数
-logic       条件组合方式，AND / OR
+domain      规则领域
+level       L1 / L2 / L3
+weight      风险权重
 enabled     是否启用
-conditions  匹配条件列表
-action      命中后的标签和分数信息
+logic       AND / OR
+conditions  条件列表
+action      命中后的标签和分数
 ```
 
-新增或修改规则后，需要重启后端服务。
+修改规则后，需要重启后端服务。
 
-## 7. API 调用说明
+## 10. 前端页面说明
 
-### 7.1 内容审核
-
-接口：
+主要页面位于：
 
 ```text
-POST /api/v1/review
+frontend/src/views/
 ```
 
-完整本地地址：
+当前常见页面：
 
 ```text
-http://127.0.0.1:8010/api/v1/review
-```
-
-请求体：
-
-```json
-{
-  "content": "限时特惠，全网最低价，特价包邮，加微信下单",
-  "scale": "standard",
-  "biz_type": "default"
-}
-```
-
-返回体：
-
-```json
-{
-  "request_id": "REQ1781161554292",
-  "content": "限时特惠，全网最低价，特价包邮，加微信下单",
-  "scale": "standard",
-  "timestamp": "2026-06-11T15:05:54.292789",
-  "decision": "reject",
-  "risk_level": "high",
-  "score": 0.95,
-  "labels": ["硬广推销"],
-  "hit_rules": [
-    {
-      "rule_id": "BV_001",
-      "name": "硬广推销-联系方式",
-      "level": "L3"
-    }
-  ],
-  "review_reason": "分数达到拦截阈值，命中规则：硬广推销-联系方式"
-}
-```
-
-### 7.2 PowerShell 调用示例
-
-```powershell
-Invoke-RestMethod `
-  -Uri "http://127.0.0.1:8010/api/v1/review" `
-  -Method POST `
-  -ContentType "application/json" `
-  -Body '{"content":"限时特惠，全网最低价，加微信下单","scale":"standard","biz_type":"default"}'
-```
-
-### 7.3 Python 调用示例
-
-```python
-import requests
-
-url = "http://127.0.0.1:8010/api/v1/review"
-payload = {
-    "content": "强烈推荐这款产品，亲测好用，安利给大家",
-    "scale": "standard",
-    "biz_type": "default",
-}
-
-resp = requests.post(url, json=payload)
-print(resp.json())
-```
-
-### 7.4 其他接口
-
-```text
-GET    /api/v1/review/history   获取审核历史
-GET    /api/v1/rules            获取规则列表
-GET    /api/v1/manual/tasks     获取人工审核任务
-POST   /api/v1/manual/review    提交人工审核结果
-GET    /api/v1/stats            获取统计数据
-DELETE /api/v1/data/reset       清空运行时数据
-GET    /health                  健康检查
-```
-
-## 8. 前端实现说明
-
-前端使用 Vue 3 + Element Plus + Vite。
-
-主要文件：
-
-```text
-frontend/src/App.vue
-frontend/src/main.js
-frontend/src/router/index.js
-frontend/src/api/index.js
-frontend/src/views/ReviewPage.vue
-frontend/src/views/ManualQueue.vue
-frontend/src/views/StatsPage.vue
-```
-
-页面说明：
-
-```text
-ReviewPage.vue   内容审核页面
-ManualQueue.vue  人工审核队列页面
-StatsPage.vue    统计看板页面
+LoginPage.vue          登录页
+ReviewPage.vue         单条内容审核
+BatchReviewPage.vue    批量审核
+ManualQueue.vue        人工审核队列
+ManualTaskDetail.vue   人工审核详情
+TracePage.vue          命中过程展示
+StatsPage.vue          统计看板
 ```
 
 接口封装：
@@ -442,183 +468,142 @@ StatsPage.vue    统计看板页面
 frontend/src/api/index.js
 ```
 
-示例：
+路由配置：
 
-```js
-export const reviewContent = (data) => api.post('/review', data)
-export const getManualTasks = (status = 'pending') => api.get('/manual/tasks', { params: { status } })
-export const getStatistics = () => api.get('/stats')
+```text
+frontend/src/router/index.js
 ```
 
-## 9. 开发注意事项
+## 11. 测试与验证
 
-### 9.1 不要提交运行缓存
+### 11.1 后端快速验证
 
-不要提交：
+后端启动后，在浏览器打开：
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+测试 `POST /api/v1/review`。
+
+也可以用 PowerShell：
+
+```powershell
+Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8000/api/v1/review" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body '{"content":"床加前我明微月信光","scale":"standard","biz_type":"default"}'
+```
+
+### 11.2 Python 测试
+
+项目包含测试脚本：
+
+```text
+tests/test_engine.py
+tests/evaluate.py
+```
+
+可以按需要运行：
+
+```bash
+python tests/test_engine.py
+python tests/evaluate.py
+```
+
+### 11.3 前端构建
+
+```bash
+cd frontend
+npm run build
+```
+
+如果在受限环境中出现 `esbuild spawn EPERM`，通常是本机权限或安全策略问题，不一定是代码问题。
+
+## 12. 常见问题
+
+### 12.1 No module named uvicorn
+
+当前 Python 环境没有安装依赖：
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+### 12.2 端口被占用
+
+Windows 查看端口：
+
+```powershell
+netstat -ano | findstr :8000
+```
+
+结束进程：
+
+```powershell
+taskkill /PID <pid> /F
+```
+
+也可以换端口启动后端，并同步修改 `frontend/vite.config.js`。
+
+### 12.3 npm install 找不到 package.json
+
+请确认在前端目录执行：
+
+```bash
+cd frontend
+npm install
+```
+
+### 12.4 前端请求后端失败
+
+检查三件事：
+
+```text
+1. 后端是否启动
+2. 后端端口是否和 vite.config.js 中 target 一致
+3. 前端请求路径是否以 /api 开头
+```
+
+## 13. 开发注意事项
+
+不要提交运行缓存：
 
 ```text
 __pycache__/
 *.pyc
 node_modules/
 dist/
-*-server.log
+*.log
 ```
 
-这些已在 `.gitignore` 中配置。
+建议提交前检查：
 
-### 9.2 规则修改后要重启后端
+```bash
+git status
+git diff --stat
+```
 
-当前规则只在后端启动时加载。修改 `engine/rules/*.json` 后，需要重启后端。
-
-### 9.3 前后端端口要一致
-
-如果后端不是 `8010`，需要修改：
+如果新增依赖：
 
 ```text
-frontend/vite.config.js
+Python 依赖写入 requirements.txt
+前端依赖通过 package.json / package-lock.json 管理
 ```
 
-确保 `target` 指向正确的后端地址。
+## 14. 后续优化方向
 
-### 9.4 运行时数据不会持久化
-
-当前审核历史和人工审核队列存在内存中。后端重启后会清空。
-
-## 10. 后续优化方向
-
-推荐优先优化：
+建议优先级：
 
 ```text
-1. 数据库持久化
-2. 规则热加载
-3. 规则管理后台
-4. 命中词位置返回和前端高亮
-5. 测试集评估脚本
-6. 统计图表增强
-7. 文本归一化，处理空格、符号、谐音、变体词
-8. Docker 部署
+1. 规则热加载
+2. 规则管理后台
+3. 数据库存储审核历史和人工队列
+4. 对抗检测策略配置化
+5. model matcher 接入大语言模型或本地分类模型
+6. 批量评估准确率、召回率、误杀率、漏放率
+7. Docker / docker-compose 部署
 ```
 
-其中最适合当前阶段做的是：
-
-```text
-规则热加载
-命中词高亮
-测试集评估
-```
-
-这三项改动范围相对可控，同时展示效果比较明显。
-
-## 11. 审核链路复现与对抗检测
-
-当前版本已经在 `Engine.check(content, scale)` 的返回值中加入审核链路复现数据，用于解释单条内容从输入到判定的完整过程。
-
-新增核心字段：
-
-```text
-trace              审核过程时间线
-hit_positions      命中词位置，用于前端高亮
-adversarial_hits   疑似插字绕过命中结果
-score_detail       风险分数计算细节
-decision_detail    三态判定阈值细节
-```
-
-### 11.1 trace
-
-`trace.stages` 记录每个处理阶段：
-
-```text
-input_received      接收输入
-preprocess          文本预处理
-keyword_scan        关键词扫描
-adversarial_check   对抗扰动检测
-rule_match          规则匹配
-score               风险打分
-decision            三态判定
-final_action        最终处理
-```
-
-前端 `ReviewPage.vue` 使用时间线展示这些阶段。
-
-### 11.2 命中词高亮
-
-`hit_positions` 示例：
-
-```json
-[
-  {
-    "keyword": "加我微信",
-    "start": 0,
-    "end": 4,
-    "rule_ids": ["BV_001"],
-    "match_type": "exact"
-  }
-]
-```
-
-前端根据 `start` 和 `end` 对原文进行高亮。
-
-### 11.3 对抗样本检测
-
-为了解决简单关键词匹配容易被插字绕过的问题，引擎对 L3 高危关键词增加了间隔容忍匹配。
-
-示例：
-
-```text
-加我微信                 -> 直接命中
-床加前我明微月信光       -> 通过间隔匹配命中
-```
-
-对抗命中返回在：
-
-```text
-adversarial_hits
-```
-
-示例：
-
-```json
-[
-  {
-    "keyword": "加我微信",
-    "matched_text": "加前我明微月信",
-    "max_gap": 2,
-    "rule_id": "BV_001",
-    "rule_name": "硬广推销-联系方式",
-    "level": "L3"
-  }
-]
-```
-
-这类命中也会进入 `trace.stages` 中的 `adversarial_check` 阶段。
-
-### 11.4 实现位置
-
-主要实现文件：
-
-```text
-engine/engine.py
-engine/scorer.py
-frontend/src/views/ReviewPage.vue
-```
-
-其中：
-
-```text
-engine/engine.py               负责 trace、命中位置、对抗检测
-engine/scorer.py               负责 score_detail 和 decision_detail
-frontend/src/views/ReviewPage.vue 负责时间线展示和命中词高亮
-```
-
-### 11.5 注意事项
-
-当前对抗检测是轻量版本：
-
-```text
-1. 只对 L3 高危关键词启用
-2. 默认 max_gap = 2
-3. 关键词长度小于 3 时不启用
-4. 当前不处理拼音、谐音、复杂语义绕过
-```
-
-后续如果误杀较多，可以将 `max_gap`、是否启用 fuzzy、适用规则范围做成规则 JSON 配置。
+其中 `model` matcher 已在 `engine/matchers.py` 中预留，但当前还没有实际调用模型 API。

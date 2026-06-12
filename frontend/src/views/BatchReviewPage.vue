@@ -169,15 +169,42 @@ const parseImportedText = (text, fileName) => {
   const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
   if (!fileName.toLowerCase().endsWith('.csv')) return lines
 
-  const parsed = lines.map((line) => {
-    const cells = line.match(/("([^"]|"")*"|[^,，]+)/g) || [line]
-    return cells[0].replace(/^"|"$/g, '').replace(/""/g, '"').trim()
-  })
+  const rows = lines.map(parseCsvLine)
+  const firstRow = rows[0] || []
+  const normalizedHeader = firstRow.map((cell) => cell.replace(/^\ufeff/, '').trim().toLowerCase())
+  const contentColumnIndex = normalizedHeader.findIndex((cell) => ['content', 'text', '内容', '文本'].includes(cell))
 
-  if (parsed[0] && ['content', '内容', '文本'].includes(parsed[0].toLowerCase())) {
-    return parsed.slice(1).filter(Boolean)
+  if (contentColumnIndex >= 0) {
+    return rows.slice(1).map((row) => row[contentColumnIndex]?.trim()).filter(Boolean)
   }
-  return parsed.filter(Boolean)
+
+  return rows.map((row) => row[0]?.trim()).filter(Boolean)
+}
+
+const parseCsvLine = (line) => {
+  const cells = []
+  let current = ''
+  let inQuotes = false
+
+  for (let index = 0; index < line.length; index++) {
+    const char = line[index]
+    const nextChar = line[index + 1]
+
+    if (char === '"' && inQuotes && nextChar === '"') {
+      current += '"'
+      index++
+    } else if (char === '"') {
+      inQuotes = !inQuotes
+    } else if ((char === ',' || char === '，') && !inQuotes) {
+      cells.push(current)
+      current = ''
+    } else {
+      current += char
+    }
+  }
+
+  cells.push(current)
+  return cells.map((cell) => cell.trim())
 }
 
 const fillSample = () => {
@@ -187,7 +214,6 @@ const fillSample = () => {
     '强/烈/推/荐这款面霜，亲/测/好/用。',
     '、床加前微明信月下光单。'
   ].join('\n')
-  form.value.scale = 'standard'
 }
 
 const clearAll = () => {

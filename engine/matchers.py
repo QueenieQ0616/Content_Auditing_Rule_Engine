@@ -3,7 +3,6 @@
 import re
 from typing import List, Optional, Set
 
-
 def match_keyword(
     content: str,
     value: object,

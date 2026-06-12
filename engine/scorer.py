@@ -4,7 +4,7 @@ from typing import List
 
 SCALES = {
     "loose": {"low": 0.5, "high": 0.8},
-    "standard": {"low": 0.35, "high": 0.7},
+    "standard": {"low": 0.35, "high": 0.75},
     "strict": {"low": 0.2, "high": 0.5},
 }
 
